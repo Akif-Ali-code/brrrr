@@ -1,5 +1,6 @@
 const speedTest = require('speedtest-net');
 const mongoose = require('mongoose');
+const cron = require('node-cron');
 
 const DB_URL = 'mongodb://localhost:27017/internet_stats';
 
@@ -20,7 +21,7 @@ const SpeedLog = mongoose.model('SpeedLog', speedSchema);
 
 async function runSpeedTest() {
   try {
-    console.log('Starting speed test...');
+    console.log('Starting scheduled speed test...');
 
     const stats = await speedTest({ 
       acceptLicense: true, 
@@ -35,17 +36,18 @@ async function runSpeedTest() {
       serverLocation: `${stats.server.location} (${stats.server.name})`
     };
 
-    console.log('Test Complete:', result);
-
     const log = new SpeedLog(result);
     await log.save();
-    console.log('Performance data saved to DB successfully.');
+    console.log('Data saved successfully at:', new Date().toLocaleTimeString());
+    console.log(result);
 
   } catch (err) {
     console.error('Speed test failed:', err.message);
-  } finally {
-    mongoose.connection.close();
   }
 }
 
-runSpeedTest();
+cron.schedule('*/15 * * * *', () => {
+  runSpeedTest();
+});
+
+console.log('Speed Monitor Service Started (Running every 15 minutes)');
