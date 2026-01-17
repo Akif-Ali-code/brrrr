@@ -1,0 +1,51 @@
+const speedTest = require('speedtest-net');
+const mongoose = require('mongoose');
+
+const DB_URL = 'mongodb://localhost:27017/internet_stats';
+
+mongoose.connect(DB_URL)
+  .then(() => console.log('Connected to Database...'))
+  .catch(err => console.error('DB Connection Error:', err));
+
+const speedSchema = new mongoose.Schema({
+  timestamp: { type: Date, default: Date.now },
+  downloadMbps: Number,
+  uploadMbps: Number,
+  pingMs: Number,
+  isp: String,
+  serverLocation: String
+});
+
+const SpeedLog = mongoose.model('SpeedLog', speedSchema);
+
+async function runSpeedTest() {
+  try {
+    console.log('Starting speed test...');
+
+    const stats = await speedTest({ 
+      acceptLicense: true, 
+      acceptGdpr: true 
+    });
+
+    const result = {
+      downloadMbps: (stats.download.bandwidth * 8 / 1000000).toFixed(2),
+      uploadMbps: (stats.upload.bandwidth * 8 / 1000000).toFixed(2),
+      pingMs: stats.ping.latency,
+      isp: stats.isp,
+      serverLocation: `${stats.server.location} (${stats.server.name})`
+    };
+
+    console.log('Test Complete:', result);
+
+    const log = new SpeedLog(result);
+    await log.save();
+    console.log('Performance data saved to DB successfully.');
+
+  } catch (err) {
+    console.error('Speed test failed:', err.message);
+  } finally {
+    mongoose.connection.close();
+  }
+}
+
+runSpeedTest();
